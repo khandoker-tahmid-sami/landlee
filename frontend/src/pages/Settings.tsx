@@ -42,7 +42,7 @@ export function Settings() {
       <label>
         Your resume / CV text
         <p className="hint">
-          Paste the plain text of your current CV here. This is what Claude uses to write tailored cover
+          Paste the plain text of your current CV here. This is what Landlee uses to write tailored cover
           letters and CV suggestions — it will never invent experience you haven't listed here.
         </p>
         <textarea rows={16} value={resumeText} onChange={(e) => setResumeText(e.target.value)} />

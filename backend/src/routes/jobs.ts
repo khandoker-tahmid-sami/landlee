@@ -79,6 +79,22 @@ jobsRouter.patch("/:id", async (req, res) => {
     if (field in req.body) updates[field] = req.body[field];
   }
 
+  // Record the moment a job first becomes 'applied', so the dashboard's
+  // monthly chart reflects when the user actually applied rather than
+  // whatever the status happens to be as of the latest edit.
+  if (updates.status === "applied") {
+    const { data: existing } = await supabaseAdmin
+      .from("jobs")
+      .select("applied_at")
+      .eq("user_id", req.user!.id)
+      .eq("id", req.params.id)
+      .single();
+
+    if (existing && !existing.applied_at) {
+      updates.applied_at = new Date().toISOString();
+    }
+  }
+
   const { data, error } = await supabaseAdmin
     .from("jobs")
     .update(updates)
@@ -89,6 +105,55 @@ jobsRouter.patch("/:id", async (req, res) => {
 
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
+});
+
+jobsRouter.get("/stats/summary", async (req, res) => {
+  const { data, error } = await supabaseAdmin
+    .from("jobs")
+    .select("status, application_deadline, applied_at")
+    .eq("user_id", req.user!.id);
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  const today = new Date();
+  const todayUTC = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+
+  let applied = 0;
+  let interviewing = 0;
+  let offers = 0;
+  let missed = 0;
+
+  for (const job of data) {
+    if (job.status === "interviewing") interviewing++;
+    if (job.status === "offer") offers++;
+    if (job.applied_at) applied++;
+
+    if (job.status === "saved" && job.application_deadline) {
+      const [year, month, day] = job.application_deadline.split("-").map(Number);
+      const deadlineUTC = Date.UTC(year, month - 1, day);
+      if (deadlineUTC < todayUTC) missed++;
+    }
+  }
+
+  // Last 6 months, oldest first, zero-filled so months with no applications
+  // still show up on the chart instead of just disappearing.
+  const monthly: { month: string; label: string; count: number }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - i, 1));
+    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+    const label = d.toLocaleDateString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" });
+    monthly.push({ month: key, label, count: 0 });
+  }
+  const monthIndex = new Map(monthly.map((m, i) => [m.month, i]));
+
+  for (const job of data) {
+    if (!job.applied_at) continue;
+    const key = job.applied_at.slice(0, 7); // "YYYY-MM"
+    const idx = monthIndex.get(key);
+    if (idx !== undefined) monthly[idx].count++;
+  }
+
+  res.json({ applied, interviewing, offers, missed, monthly });
 });
 
 jobsRouter.delete("/:id", async (req, res) => {

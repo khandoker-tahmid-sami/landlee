@@ -27,7 +27,7 @@ profileRouter.get("/", async (req, res) => {
 });
 
 profileRouter.patch("/", async (req, res) => {
-  const allowedFields = ["full_name", "resume_text", "email_notifications"];
+  const allowedFields = ["full_name", "resume_text", "email_notifications", "avatar_url"];
   const updates: Record<string, unknown> = {};
   for (const field of allowedFields) {
     if (field in req.body) updates[field] = req.body[field];

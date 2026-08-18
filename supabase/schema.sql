@@ -5,6 +5,7 @@
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
+  avatar_url text,
   resume_text text,          -- plain-text version of the user's base CV/resume
   email_notifications boolean not null default true,
   created_at timestamptz not null default now(),
@@ -27,6 +28,7 @@ create table if not exists public.jobs (
   raw_description text,       -- cleaned text extracted from the job page
   application_deadline date,  -- extracted or manually set
   status text not null default 'saved' check (status in ('saved', 'applied', 'interviewing', 'offer', 'rejected', 'archived')),
+  applied_at timestamptz,     -- set once, the first time status becomes 'applied'
   notified_at timestamptz,    -- last time a deadline-reminder email was sent
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -106,3 +108,26 @@ create trigger set_profiles_updated_at before update on public.profiles
 drop trigger if exists set_jobs_updated_at on public.jobs;
 create trigger set_jobs_updated_at before update on public.jobs
   for each row execute procedure public.set_updated_at();
+
+-- Storage bucket for profile pictures. Create it via the Supabase dashboard
+-- or `supabase.storage.createBucket('avatars', { public: true })` if this
+-- insert fails because the storage schema isn't reachable from this editor.
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict (id) do nothing;
+
+create policy "Avatar images are publicly accessible"
+  on storage.objects for select
+  using (bucket_id = 'avatars');
+
+create policy "Users can upload their own avatar"
+  on storage.objects for insert
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "Users can update their own avatar"
+  on storage.objects for update
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "Users can delete their own avatar"
+  on storage.objects for delete
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);

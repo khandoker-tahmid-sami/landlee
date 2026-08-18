@@ -54,13 +54,23 @@ export interface GeneratedDocument {
 export interface Profile {
   id: string;
   full_name: string | null;
+  avatar_url: string | null;
   resume_text: string | null;
   email_notifications: boolean;
+}
+
+export interface JobStats {
+  applied: number;
+  interviewing: number;
+  offers: number;
+  missed: number;
+  monthly: { month: string; label: string; count: number }[];
 }
 
 export const api = {
   jobs: {
     list: () => request<Job[]>("/jobs"),
+    stats: () => request<JobStats>("/jobs/stats/summary"),
     get: (id: string) => request<Job>(`/jobs/${id}`),
     extract: (url: string) => request<Job>("/jobs/extract", { method: "POST", body: JSON.stringify({ url }) }),
     update: (id: string, updates: Partial<Job>) =>

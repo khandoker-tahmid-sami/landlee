@@ -3,11 +3,14 @@ import "./App.css";
 import { Navbar } from "./components/Navbar";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
+import { About } from "./pages/About";
 import { AddJob } from "./pages/AddJob";
 import { Dashboard } from "./pages/Dashboard";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { JobDetail } from "./pages/JobDetail";
+import { Jobs } from "./pages/Jobs";
 import { Login } from "./pages/Login";
+import { Profile } from "./pages/Profile";
 import { ResetPassword } from "./pages/ResetPassword";
 import { Settings } from "./pages/Settings";
 import { Signup } from "./pages/Signup";
@@ -22,11 +25,20 @@ function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/about" element={<About />} />
           <Route
             path="/"
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/jobs"
+            element={
+              <ProtectedRoute>
+                <Jobs />
               </ProtectedRoute>
             }
           />
@@ -51,6 +63,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
               </ProtectedRoute>
             }
           />

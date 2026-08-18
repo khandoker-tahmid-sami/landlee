@@ -1,79 +1,80 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, type Job } from "../lib/api";
+import { AlertClockIcon, AwardIcon, CheckCircleIcon, MessageCircleIcon } from "../components/DashboardIcons";
+import { MonthlyBarChart } from "../components/MonthlyBarChart";
+import { StatTile } from "../components/StatTile";
+import { useAuth } from "../context/AuthContext";
+import { api, type JobStats } from "../lib/api";
 
-const STATUS_LABELS: Record<Job["status"], string> = {
-  saved: "Saved",
-  applied: "Applied",
-  interviewing: "Interviewing",
-  offer: "Offer",
-  rejected: "Rejected",
-  archived: "Archived",
-};
-
-function daysUntil(dateStr: string | null): number | null {
-  if (!dateStr) return null;
-  const target = new Date(dateStr);
-  const today = new Date();
-  const ms = Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), target.getUTCDate())
-    - Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-  return Math.round(ms / (24 * 60 * 60 * 1000));
+function timeOfDayGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
 }
 
 export function Dashboard() {
-  const [jobs, setJobs] = useState<Job[] | null>(null);
+  const { profile } = useAuth();
+  const [stats, setStats] = useState<JobStats | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api.jobs
-      .list()
-      .then(setJobs)
+      .stats()
+      .then(setStats)
       .catch((err) => setError(err.message));
   }, []);
 
   if (error) return <p className="form-error">{error}</p>;
-  if (!jobs) return <p>Loading jobs…</p>;
+  if (!stats) return <p>Loading…</p>;
+
+  const hasAnyActivity = stats.monthly.some((m) => m.count > 0);
+  const monthlyTotal = stats.monthly.reduce((sum, m) => sum + m.count, 0);
+  const firstName = profile?.full_name?.trim().split(" ")[0];
 
   return (
     <div className="dashboard">
       <div className="dashboard-header">
-        <h1>Your saved jobs</h1>
+        <div>
+          <p className="dashboard-greeting">
+            {timeOfDayGreeting()}
+            {firstName ? `, ${firstName}` : ""}
+          </p>
+          <h1>Dashboard</h1>
+        </div>
         <Link to="/add-job" className="button-primary">
           + Add job
         </Link>
       </div>
 
-      {jobs.length === 0 ? (
-        <p>
-          No jobs saved yet. <Link to="/add-job">Paste a job link</Link> to get started.
-        </p>
-      ) : (
-        <ul className="job-list">
-          {jobs.map((job) => {
-            const remaining = daysUntil(job.application_deadline);
-            return (
-              <li key={job.id} className="job-card">
-                <Link to={`/jobs/${job.id}`}>
-                  <h2>{job.title ?? "Untitled role"}</h2>
-                  <p className="job-meta">
-                    {job.company ?? "Unknown company"}
-                    {job.location ? ` · ${job.location}` : ""}
-                  </p>
-                  <div className="job-card-footer">
-                    <span className={`status-badge status-${job.status}`}>{STATUS_LABELS[job.status]}</span>
-                    {job.application_deadline && (
-                      <span className={remaining !== null && remaining <= 3 ? "deadline-soon" : "deadline"}>
-                        Deadline: {job.application_deadline}
-                        {remaining !== null && remaining >= 0 ? ` (${remaining}d left)` : ""}
-                      </span>
-                    )}
-                  </div>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <div className="stat-grid">
+        <StatTile label="Applied" value={stats.applied} color="#0891a3" icon={<CheckCircleIcon />} />
+        <StatTile label="Interviewing" value={stats.interviewing} color="#d99a34" icon={<MessageCircleIcon />} />
+        <StatTile label="Offers" value={stats.offers} color="#0f9b6e" icon={<AwardIcon />} />
+        <StatTile label="Missed deadlines" value={stats.missed} color="#d84315" icon={<AlertClockIcon />} />
+      </div>
+
+      <section className="dashboard-chart-section">
+        <div className="dashboard-chart-header">
+          <h2>Applications by month</h2>
+          {hasAnyActivity && (
+            <span className="dashboard-chart-total">
+              {monthlyTotal} in the last 6 months
+            </span>
+          )}
+        </div>
+        {hasAnyActivity ? (
+          <MonthlyBarChart data={stats.monthly} color="#0891a3" />
+        ) : (
+          <p className="hint">
+            No applications yet. Once you mark a saved job as "Applied," it'll show up here.
+          </p>
+        )}
+      </section>
+
+      <p className="dashboard-footer-link">
+        <Link to="/jobs">View all saved jobs →</Link>
+      </p>
     </div>
   );
 }
