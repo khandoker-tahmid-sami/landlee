@@ -1,4 +1,4 @@
-import { GEMINI_MODEL, genAI } from "../geminiClient.js";
+import { GEMINI_MODEL, generateContentWithRetry } from "../geminiClient.js";
 
 export interface JobContext {
   title: string | null;
@@ -28,7 +28,7 @@ export async function generateCoverLetter(
   resumeText: string,
   applicantName: string | null,
 ): Promise<string> {
-  const response = await genAI.models.generateContent({
+  const response = await generateContentWithRetry({
     model: GEMINI_MODEL,
     contents:
       `Write a cover letter for ${applicantName ?? "the applicant"} applying to this job:\n\n` +
@@ -45,7 +45,7 @@ export async function generateCoverLetter(
 }
 
 export async function generateCvSuggestions(job: JobContext, resumeText: string): Promise<string> {
-  const response = await genAI.models.generateContent({
+  const response = await generateContentWithRetry({
     model: GEMINI_MODEL,
     contents:
       `Here is the job to tailor for:\n\n${jobSummaryBlock(job)}\n\n---\n\n` +

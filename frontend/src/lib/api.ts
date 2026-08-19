@@ -2,6 +2,17 @@ import { supabase } from "./supabaseClient";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
 
+export class ApiRequestError extends Error {
+  status: number;
+  body: Record<string, unknown>;
+
+  constructor(status: number, body: Record<string, unknown>) {
+    super((body.error as string | undefined) ?? `Request failed (${status})`);
+    this.status = status;
+    this.body = body;
+  }
+}
+
 async function authHeader(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -19,7 +30,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({ error: response.statusText }));
-    throw new Error(body.error ?? `Request failed (${response.status})`);
+    throw new ApiRequestError(response.status, body);
   }
 
   if (response.status === 204) return undefined as T;
@@ -39,7 +50,16 @@ export interface Job {
   nice_to_have: string[];
   raw_description: string;
   application_deadline: string | null;
+  deadline_note: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  mail_notes: string | null;
+  follow_up_notes: string | null;
+  interview_notes: string | null;
+  interview_time: string | null;
   status: "saved" | "applied" | "interviewing" | "offer" | "rejected" | "archived";
+  applied_at: string | null;
   created_at: string;
 }
 
@@ -51,12 +71,18 @@ export interface GeneratedDocument {
   created_at: string;
 }
 
+export interface JobsTablePrefs {
+  enabledFilters?: Record<string, boolean>;
+  visibleColumns?: Record<string, boolean>;
+}
+
 export interface Profile {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
   resume_text: string | null;
   email_notifications: boolean;
+  jobs_table_prefs: JobsTablePrefs;
 }
 
 export interface JobStats {

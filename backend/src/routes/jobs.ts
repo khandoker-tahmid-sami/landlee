@@ -20,6 +20,20 @@ jobsRouter.post("/extract", async (req, res) => {
   }
 
   try {
+    const { data: existing } = await supabaseAdmin
+      .from("jobs")
+      .select("id")
+      .eq("user_id", req.user!.id)
+      .eq("source_url", parsedUrl.toString())
+      .maybeSingle();
+
+    if (existing) {
+      return res.status(409).json({
+        error: "You've already saved this job",
+        existingJobId: existing.id,
+      });
+    }
+
     const extracted = await extractJobFromUrl(parsedUrl.toString());
 
     const { data, error } = await supabaseAdmin
@@ -37,6 +51,9 @@ jobsRouter.post("/extract", async (req, res) => {
         nice_to_have: extracted.nice_to_have,
         raw_description: extracted.raw_description,
         application_deadline: extracted.application_deadline,
+        contact_name: extracted.contact_name,
+        contact_phone: extracted.contact_phone,
+        contact_email: extracted.contact_email,
       })
       .select()
       .single();
@@ -73,7 +90,20 @@ jobsRouter.get("/:id", async (req, res) => {
 });
 
 jobsRouter.patch("/:id", async (req, res) => {
-  const allowedFields = ["status", "application_deadline", "title", "company"];
+  const allowedFields = [
+    "status",
+    "application_deadline",
+    "deadline_note",
+    "title",
+    "company",
+    "contact_name",
+    "contact_phone",
+    "contact_email",
+    "mail_notes",
+    "follow_up_notes",
+    "interview_notes",
+    "interview_time",
+  ];
   const updates: Record<string, unknown> = {};
   for (const field of allowedFields) {
     if (field in req.body) updates[field] = req.body[field];

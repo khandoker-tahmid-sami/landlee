@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import { GEMINI_MODEL, genAI } from "../geminiClient.js";
+import { GEMINI_MODEL, generateContentWithRetry } from "../geminiClient.js";
 import type { ExtractedJobInfo } from "../types.js";
 
 const MAX_DESCRIPTION_CHARS = 15000;
@@ -43,6 +43,18 @@ const EXTRACTION_SCHEMA = {
       type: ["string", "null"],
       description: "ISO date YYYY-MM-DD if a deadline is stated or can be inferred; otherwise null",
     },
+    contact_name: {
+      type: ["string", "null"],
+      description: "Name (and title, if given) of the hiring/recruiter contact named on the posting. Null if none is listed.",
+    },
+    contact_phone: {
+      type: ["string", "null"],
+      description: "Phone number of the hiring/recruiter contact, if listed. Null otherwise.",
+    },
+    contact_email: {
+      type: ["string", "null"],
+      description: "Email address of the hiring/recruiter contact, if listed. Null otherwise.",
+    },
   },
   required: [
     "title",
@@ -54,13 +66,16 @@ const EXTRACTION_SCHEMA = {
     "requirements",
     "nice_to_have",
     "application_deadline",
+    "contact_name",
+    "contact_phone",
+    "contact_email",
   ],
 };
 
 export async function extractJobFromUrl(url: string): Promise<ExtractedJobInfo> {
   const pageText = await fetchPageText(url);
 
-  const response = await genAI.models.generateContent({
+  const response = await generateContentWithRetry({
     model: GEMINI_MODEL,
     contents:
       "Extract structured job posting information from the following page text. " +
